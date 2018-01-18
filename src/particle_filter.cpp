@@ -160,7 +160,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         // call dataAssociation
         std::vector<int> associations = dataAssociation(pred_observations, trans_observations);
         
-        // compute new weight using mult-variate Gaussian distribution
+        // compute new weight using multi-variate Gaussian distribution
         double std_x = std_landmark[0];
         double std_y = std_landmark[1];
         double var_x = std_x*std_x;
