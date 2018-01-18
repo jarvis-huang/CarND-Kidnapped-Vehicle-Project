@@ -76,14 +76,14 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     }
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
+std::vector<int> ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
     
     // Nearest neighbor algorithm => associations
-    associations.resize(predicted.size());
+    std::vector<int> associations(predicted.size());
     for (unsigned int i=0; i<predicted.size(); i++)
     {
         auto& pred = predicted[i];
@@ -105,6 +105,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
             associations[i] = matched_id;
         }
     }
+    return associations;
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -119,14 +120,15 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+ 
     weights.clear();
-    for (auto& particle: particles)
+    
+    for (auto& particle: particles) // foreach particle
     {
         double x, y, theta, weight;
         x = particle.x;
         y = particle.y;
         theta = particle.theta;
-        //std::cout << "particle x, y, t = " << x << ", " << y << ", " << theta << std::endl;
         weight = particle.weight;
         
         // Transform observations => MAP coordinate
@@ -138,10 +140,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
             double obs_x = observations[i].x; 
             double obs_y = observations[i].y;
             theta = particle.theta;
-            //std::cout << "obs = " << obs_x << ", " << obs_y << std::endl;
             trans_observations[i].x = cos(theta)*obs_x - sin(theta)*obs_y + x;
             trans_observations[i].y = sin(theta)*obs_x + cos(theta)*obs_y + y;
-            //std::cout << "trans_obs = " << trans_observations[i].x << ", " << trans_observations[i].y << std::endl;
         }
         
         // Compute predicted measurements
@@ -149,33 +149,32 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         for (auto& lm: map_landmarks.landmark_list) {
             if (dist(x, y, lm.x_f, lm.y_f)<sensor_range) {
                 LandmarkObs lmo;
+                lmo.id = lm.id_i;
                 lmo.x = lm.x_f;
                 lmo.y = lm.y_f;
                 pred_observations.push_back(lmo);
-                //std::cout << "pred_obs = " << lmo.x << ", " << lmo.y << std::endl;
             }
         }
         
         
         // call dataAssociation
-        dataAssociation(pred_observations, trans_observations);
-        /*
-        for (auto& ass: associations)
-            std::cout << "associations[]=" << ass << std::endl;
-        */
-        //exit(0);
-        
+        std::vector<int> associations = dataAssociation(pred_observations, trans_observations);
         
         // compute new weight using mult-variate Gaussian distribution
         double std_x = std_landmark[0];
         double std_y = std_landmark[1];
         double var_x = std_x*std_x;
         double var_y = std_y*std_y;
+        std::vector<int> new_associations;
+        std::vector<double> sense_x, sense_y; // for SetAssociations
         double w = 1;
         for (unsigned int i=0; i<pred_observations.size(); i++) {
             LandmarkObs& pred = pred_observations[i];
             int match_id = associations[i];
             LandmarkObs& obs = trans_observations[match_id];
+            new_associations.push_back(pred.id);
+            sense_x.push_back(obs.x);
+            sense_y.push_back(obs.y);
             double error_x = fabs(pred.x - obs.x);
             double error_y = fabs(pred.y - obs.y);
             double num = std::exp(-0.5*(error_x*error_x/var_x + error_y*error_y/var_y));
@@ -186,6 +185,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         // update particle and weights
         particle.weight = w;
         weights.push_back(w);
+        SetAssociations(particle, new_associations, sense_x, sense_y);
     }
 }
 
@@ -206,7 +206,7 @@ void ParticleFilter::resample() {
     particles.swap(new_particles);
 }
 
-Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
+void ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations, 
                                      const std::vector<double>& sense_x, const std::vector<double>& sense_y)
 {
     //particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
@@ -214,7 +214,7 @@ Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<i
     // sense_x: the associations x mapping already converted to world coordinates
     // sense_y: the associations y mapping already converted to world coordinates
 
-    particle.associations= associations;
+    particle.associations = associations;
     particle.sense_x = sense_x;
     particle.sense_y = sense_y;
 }
