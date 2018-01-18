@@ -44,7 +44,7 @@ int main()
   }
 
   // Create particle filter
-  ParticleFilter pf;
+  ParticleFilter pf(100);
 
   h.onMessage([&pf,&map,&delta_t,&sensor_range,&sigma_pos,&sigma_landmark](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -60,6 +60,7 @@ int main()
       	
         auto j = json::parse(s);
         std::string event = j[0].get<std::string>();
+        
         
         if (event == "telemetry") {
           // j[1] is the data JSON object
@@ -78,7 +79,6 @@ int main()
 			// Predict the vehicle's next state from previous (noiseless control) data.
 		  	double previous_velocity = std::stod(j[1]["previous_velocity"].get<std::string>());
 			double previous_yawrate = std::stod(j[1]["previous_yawrate"].get<std::string>());
-
 			pf.prediction(delta_t, sigma_pos, previous_velocity, previous_yawrate);
 		  }
 
@@ -139,11 +139,10 @@ int main()
           msgJson["best_particle_associations"] = pf.getAssociations(best_particle);
           msgJson["best_particle_sense_x"] = pf.getSenseX(best_particle);
           msgJson["best_particle_sense_y"] = pf.getSenseY(best_particle);
-
+          
           auto msg = "42[\"best_particle\"," + msgJson.dump() + "]";
-          // std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-	  
+          	  
         }
       } else {
         std::string msg = "42[\"manual\",{}]";

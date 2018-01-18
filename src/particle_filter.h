@@ -35,6 +35,9 @@ class ParticleFilter {
 	
 	// Vector of weights of all particles
 	std::vector<double> weights;
+    
+    // FIXME: get rid of it
+    std::vector<int> associations;
 	
 public:
 	
@@ -43,7 +46,7 @@ public:
 
 	// Constructor
 	// @param num_particles Number of particles
-	ParticleFilter() : num_particles(0), is_initialized(false) {}
+	ParticleFilter(int _num_particles=0) : num_particles(_num_particles), is_initialized(false) {}
 
 	// Destructor
 	~ParticleFilter() {}
